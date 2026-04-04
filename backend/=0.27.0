@@ -1,0 +1,15 @@
+Collecting httpx
+  Downloading httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+Requirement already satisfied: anyio in c:\users\jetro\appdata\local\packages\pythonsoftwarefoundation.python.3.11_qbz5n2kfra8p0\localcache\local-packages\python311\site-packages (from httpx) (4.12.1)
+Requirement already satisfied: certifi in c:\users\jetro\appdata\local\packages\pythonsoftwarefoundation.python.3.11_qbz5n2kfra8p0\localcache\local-packages\python311\site-packages (from httpx) (2025.11.12)
+Collecting httpcore==1.* (from httpx)
+  Downloading httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+Requirement already satisfied: idna in c:\users\jetro\appdata\local\packages\pythonsoftwarefoundation.python.3.11_qbz5n2kfra8p0\localcache\local-packages\python311\site-packages (from httpx) (3.11)
+Requirement already satisfied: h11>=0.16 in c:\users\jetro\appdata\local\packages\pythonsoftwarefoundation.python.3.11_qbz5n2kfra8p0\localcache\local-packages\python311\site-packages (from httpcore==1.*->httpx) (0.16.0)
+Requirement already satisfied: typing_extensions>=4.5 in c:\users\jetro\appdata\local\packages\pythonsoftwarefoundation.python.3.11_qbz5n2kfra8p0\localcache\local-packages\python311\site-packages (from anyio->httpx) (4.15.0)
+Downloading httpx-0.28.1-py3-none-any.whl (73 kB)
+   ---------------------------------------- 73.5/73.5 kB 1.0 MB/s eta 0:00:00
+Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
+   ---------------------------------------- 78.8/78.8 kB 1.1 MB/s eta 0:00:00
+Installing collected packages: httpcore, httpx
+Successfully installed httpcore-1.0.9 httpx-0.28.1

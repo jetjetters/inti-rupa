@@ -227,7 +227,7 @@ def team_info():
 
 # ==================== AI IMAGE GENERATOR ====================
 
-HF_API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
+HF_API_URL = "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0"
 HF_MODEL_NAME = "stabilityai/stable-diffusion-xl-base-1.0"
 
 
