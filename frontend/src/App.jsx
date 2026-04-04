@@ -9,7 +9,7 @@ import ImageGeneratorPage from "./components/ImageGeneratorPage"
 import { useToast } from "./hooks/useToast"
 import {
   fetchItems, createItem, updateItem, deleteItem,
-  checkHealth, login, register, getMe, setToken, clearToken,
+  checkHealth, login, register, getMe, setToken, clearToken, getToken,
 } from "./services/api"
 
 function App() {
@@ -49,6 +49,21 @@ function App() {
 
   useEffect(() => {
     checkHealth().then(setIsConnected)
+  }, [])
+
+  // Restore session dari localStorage saat app pertama load
+  useEffect(() => {
+    const token = getToken()
+    if (token && !isAuthenticated) {
+      getMe()
+        .then(userData => {
+          setUser(userData)
+          setIsAuthenticated(true)
+        })
+        .catch(() => {
+          clearToken() // Token expired atau invalid
+        })
+    }
   }, [])
 
   useEffect(() => {
