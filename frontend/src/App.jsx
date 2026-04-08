@@ -231,32 +231,6 @@ const styles = {
     fontFamily: "'Segoe UI', Arial, sans-serif",
   },
   container: { maxWidth: "900px", margin: "0 auto" },
-  tabNav: {
-    display: "flex",
-    gap: "0.5rem",
-    marginBottom: "1.5rem",
-    backgroundColor: "white",
-    padding: "0.5rem",
-    borderRadius: "12px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-  },
-  tabBtn: {
-    flex: 1,
-    padding: "0.7rem 1rem",
-    border: "none",
-    borderRadius: "8px",
-    backgroundColor: "transparent",
-    color: "#888",
-    fontWeight: "bold",
-    fontSize: "0.95rem",
-    cursor: "pointer",
-    transition: "all 0.2s ease",
-  },
-  tabBtnActive: {
-    background: "linear-gradient(135deg, #1F4E79, #2E75B6)",
-    color: "white",
-    boxShadow: "0 2px 8px rgba(31,78,121,0.3)",
-  },
 }
 
 export default App
