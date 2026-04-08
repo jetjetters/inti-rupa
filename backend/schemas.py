@@ -133,7 +133,6 @@ AVAILABLE_MODELS = [
     # Fine-tuned / LoRA-merged models
     "Lykon/dreamshaper-8",
     "SG161222/Realistic_Vision_V6.0_B1_noVAE",
-    "prompthero/openjourney-v4",
 ]
 
 class ImageGenerateRequest(BaseModel):

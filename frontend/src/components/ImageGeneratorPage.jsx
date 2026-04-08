@@ -12,7 +12,6 @@ const MODELS = [
   // Fine-tuned Models
   { id: "Lykon/dreamshaper-8", label: "DreamShaper 8 🎭", desc: "Realistis + fantasy" },
   { id: "SG161222/Realistic_Vision_V6.0_B1_noVAE", label: "Realistic Vision V6 📷", desc: "Hyper-realistis" },
-  { id: "prompthero/openjourney-v4", label: "OpenJourney v4 🌈", desc: "Midjourney-style" },
 ]
 
 const SIZE_OPTIONS = [512, 768, 1024]
