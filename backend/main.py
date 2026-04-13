@@ -1,4 +1,7 @@
 import os
+import io
+import base64
+import time
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,30 +10,28 @@ from sqlalchemy.orm import Session
 from database import engine, get_db
 from models import Base, User
 from schemas import (
-    ItemCreate, ItemUpdate, ItemResponse, ItemListResponse,
     UserCreate, UserResponse, LoginRequest, TokenResponse,
     ImageGenerateRequest, ImageGenerateResponse, AVAILABLE_MODELS,
+    ImageGenerationHistoryResponse,
+    SummarizeRequest, SummarizationHistoryResponse,
+    ImageCaptionHistoryResponse,
 )
-from sqlalchemy import func
 from auth import create_access_token, get_current_user
 import crud
-import httpx
-import base64
-import io
 from huggingface_hub import AsyncInferenceClient
 
 load_dotenv()
 
-# Buat semua tabel
+# Buat semua tabel secara otomatis
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
-    title="Cloud App API",
-    description="REST API untuk mata kuliah Komputasi Awan — SI ITK",
-    version="0.4.0",
+    title="Inti Rupa API",
+    description="REST API untuk platform AI — Komputasi Awan SI ITK",
+    version="1.0.0",
 )
 
-# ==================== CORS (FIXED) ====================
+# ==================== CORS ====================
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173")
 origins_list = [origin.strip() for origin in allowed_origins.split(",")]
 
@@ -47,25 +48,41 @@ app.add_middleware(
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy", "version": "0.4.0"}
+    return {"status": "healthy", "version": "1.0.0"}
 
 
-# ==================== AUTH ENDPOINTS (PUBLIC) ====================
+# ==================== TEAM INFO ====================
+
+@app.get("/team")
+def team_info():
+    return {
+        "team": "Steam",
+        "members": [
+            {"name": "Irfan Zaki Riyanto", "nim": "10231045", "role": "Lead Backend"},
+            {"name": "Incha Raghil", "nim": "10231043", "role": "Lead Frontend"},
+            {"name": "Jonathan Cristopher Jetro", "nim": "10231047", "role": "Lead DevOps"},
+            {"name": "Jonathan Joseph Yudita Tampubolon", "nim": "10231048", "role": "Lead QA & Docs"},
+        ]
+    }
+
+
+# ==================== AUTH ENDPOINTS ====================
 
 @app.post("/auth/register", response_model=UserResponse, status_code=201)
 def register(user_data: UserCreate, db: Session = Depends(get_db)):
     """
     Registrasi user baru.
 
-    - **email**: Harus format email yang valid (contoh: nama@domain.com)
-    - **name**: Nama lengkap (2-100 karakter)
+    - **username**: Username unik, minimal 3 karakter, tanpa spasi
+    - **email**: Harus format email yang valid
+    - **full_name**: Nama lengkap (2-100 karakter)
     - **password**: Minimal 8 karakter, wajib ada huruf besar, huruf kecil, dan angka
     """
     user = crud.create_user(db=db, user_data=user_data)
     if not user:
         raise HTTPException(
             status_code=400,
-            detail=f"Email '{user_data.email}' sudah terdaftar. Gunakan email lain atau langsung login."
+            detail=f"Email '{user_data.email}' atau username '{user_data.username}' sudah terdaftar."
         )
     return user
 
@@ -74,15 +91,15 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
 def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     """
     Login dan dapatkan JWT token.
-    
-    Token berlaku selama 60 menit (default).
+
+    Token berlaku selama 60 menit.
     Gunakan token di header: `Authorization: Bearer <token>`
     """
     user = crud.authenticate_user(db=db, email=login_data.email, password=login_data.password)
     if not user:
         raise HTTPException(
             status_code=401,
-            detail="Email atau password tidak cocok. Pastikan email dan password yang Anda masukkan benar."
+            detail="Email atau password tidak cocok."
         )
 
     token = create_access_token(data={"sub": str(user.id)})
@@ -99,136 +116,7 @@ def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-# ==================== ITEM ENDPOINTS (PROTECTED) ====================
-
-@app.post("/items", response_model=ItemResponse, status_code=201)
-def create_item(
-    item: ItemCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Buat item baru. **Membutuhkan autentikasi.**"""
-    return crud.create_item(db=db, item_data=item)
-
-
-@app.get("/items", response_model=ItemListResponse)
-def list_items(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
-    search: str = Query(None),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Ambil daftar items. **Membutuhkan autentikasi.**"""
-    return crud.get_items(db=db, skip=skip, limit=limit, search=search)
-
-
-@app.get("/items/stats")
-def get_items_stats(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Statistik ringkasan semua items. **Membutuhkan autentikasi.**
-
-    - **total_items**: Jumlah item unik di database
-    - **total_value**: Total nilai aset (sum of price × quantity)
-    - **avg_price**: Rata-rata harga semua item
-    - **most_expensive**: Item dengan harga tertinggi
-    - **cheapest**: Item dengan harga terendah
-    """
-    from models import Item
-
-    total_items = db.query(func.count(Item.id)).scalar() or 0
-    total_value = db.query(func.sum(Item.price * Item.quantity)).scalar() or 0
-    avg_price = db.query(func.avg(Item.price)).scalar() or 0
-    most_expensive = db.query(Item).order_by(Item.price.desc()).first()
-    cheapest = db.query(Item).order_by(Item.price.asc()).first()
-
-    return {
-        "total_items": total_items,
-        "total_value": round(float(total_value), 2),
-        "avg_price": round(float(avg_price), 2),
-        "most_expensive": {
-            "id": most_expensive.id,
-            "name": most_expensive.name,
-            "price": most_expensive.price,
-        } if most_expensive else None,
-        "cheapest": {
-            "id": cheapest.id,
-            "name": cheapest.name,
-            "price": cheapest.price,
-        } if cheapest else None,
-    }
-
-
-@app.get("/items/{item_id}", response_model=ItemResponse)
-def get_item(
-    item_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Ambil satu item berdasarkan ID. **Membutuhkan autentikasi.**"""
-    item = crud.get_item(db=db, item_id=item_id)
-    if not item:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Item dengan ID {item_id} tidak ditemukan. Pastikan ID yang Anda masukkan benar."
-        )
-    return item
-
-
-@app.put("/items/{item_id}", response_model=ItemResponse)
-def update_item(
-    item_id: int,
-    item: ItemUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Update item berdasarkan ID. **Membutuhkan autentikasi.**"""
-    updated = crud.update_item(db=db, item_id=item_id, item_data=item)
-    if not updated:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Item dengan ID {item_id} tidak ditemukan. Tidak ada data yang diubah."
-        )
-    return updated
-
-
-@app.delete("/items/{item_id}", status_code=204)
-def delete_item(
-    item_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Hapus item berdasarkan ID. **Membutuhkan autentikasi.**"""
-    success = crud.delete_item(db=db, item_id=item_id)
-    if not success:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Item dengan ID {item_id} tidak ditemukan. Tidak ada data yang dihapus."
-        )
-    return None
-
-
-# ==================== TEAM INFO ====================
-
-@app.get("/team")
-def team_info():
-    return {
-        "team": "Steam",
-        "members": [
-            # TODO: Isi dengan data tim Anda
-            {"name": "Irfan Zaki Riyanto", "nim": "10231045", "role": "Lead Backend"},
-            {"name": "Incha Raghil", "nim": "10231043", "role": "Lead Frontend"},
-            {"name": "Jonathan Cristopher Jetro", "nim": "10231047", "role": "Lead DevOps"},
-            {"name": "Jonathan Joseph Yudita Tampubolon", "nim": "10231048", "role": "Lead QA & Docs"},
-        ]
-    }
-# ==================== AI IMAGE GENERATOR ====================
-
-HF_BASE_URL = "https://router.huggingface.co/hf-inference/models"
-
+# ==================== AI IMAGE GENERATOR ====================
 
 @app.get("/generate/models")
 def get_available_models(current_user: User = Depends(get_current_user)):
@@ -239,31 +127,33 @@ def get_available_models(current_user: User = Depends(get_current_user)):
 @app.post("/generate/image", response_model=ImageGenerateResponse)
 async def generate_image(
     request: ImageGenerateRequest,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     Generate gambar dari teks prompt menggunakan Hugging Face AI.
-    Menggunakan AsyncInferenceClient dengan provider='auto' untuk
-    akses ke lebih banyak model melalui routing otomatis.
+    Riwayat generate akan otomatis disimpan ke database.
     **Membutuhkan autentikasi.**
     """
     if request.model not in AVAILABLE_MODELS:
         raise HTTPException(
             status_code=400,
-            detail=f"Model '{request.model}' tidak tersedia."
+            detail=f"Model '{request.model}' tidak tersedia. Pilih dari: {', '.join(AVAILABLE_MODELS)}"
         )
 
     hf_api_key = os.getenv("HUGGINGFACE_API_KEY")
     if not hf_api_key:
         raise HTTPException(
             status_code=503,
-            detail="Hugging Face API Key belum dikonfigurasi. Tambahkan HUGGINGFACE_API_KEY di file .env"
+            detail="Hugging Face API Key belum dikonfigurasi."
         )
+
+    start_time = time.time()
 
     try:
         client = AsyncInferenceClient(
             api_key=hf_api_key,
-            provider="auto",  # Auto-routing ke provider terbaik yang tersedia
+            provider="auto",
         )
 
         kwargs = {
@@ -277,7 +167,6 @@ async def generate_image(
             kwargs["negative_prompt"] = request.negative_prompt
         if request.seed is not None:
             kwargs["seed"] = request.seed
-        # Width & height tidak didukung oleh semua model (misal FLUX)
         if "flux" not in request.model.lower() and "turbo" not in request.model.lower():
             kwargs["width"] = request.width
             kwargs["height"] = request.height
@@ -289,26 +178,45 @@ async def generate_image(
         image.save(buffer, format="PNG")
         image_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
+        generation_time = round(time.time() - start_time, 2)
+
+        # Simpan riwayat ke database
+        crud.create_image_generation(
+            db=db,
+            user_id=current_user.id,
+            prompt=request.prompt,
+            negative_prompt=request.negative_prompt,
+            image_url=f"data:image/png;base64,{image_base64[:50]}...",  # simpan referensi singkat
+            model_name=request.model,
+            generation_time=generation_time,
+            status="completed",
+        )
+        crud.increment_api_used(db=db, user_id=current_user.id)
+
     except Exception as e:
         error_str = str(e)
-        if "402" in error_str or "payment" in error_str.lower() or "billing" in error_str.lower():
-            raise HTTPException(
-                status_code=402,
-                detail="Model ini membutuhkan kredit berbayar di Hugging Face. Pilih model lain."
-            )
+
+        # Simpan riwayat gagal ke database
+        crud.create_image_generation(
+            db=db,
+            user_id=current_user.id,
+            prompt=request.prompt,
+            image_url="",
+            model_name=request.model,
+            generation_time=round(time.time() - start_time, 2),
+            status="failed",
+            error_message=error_str[:300],
+        )
+
+        if "402" in error_str or "payment" in error_str.lower():
+            raise HTTPException(status_code=402, detail="Model ini membutuhkan kredit berbayar.")
         if "503" in error_str or "loading" in error_str.lower():
-            raise HTTPException(
-                status_code=503,
-                detail="Model sedang loading (cold start). Tunggu 20-30 detik lalu coba lagi."
-            )
+            raise HTTPException(status_code=503, detail="Model sedang loading. Tunggu 20-30 detik lalu coba lagi.")
         if "timeout" in error_str.lower():
-            raise HTTPException(
-                status_code=504,
-                detail="Request timeout. Model mungkin sedang sibuk, coba beberapa saat lagi."
-            )
+            raise HTTPException(status_code=504, detail="Request timeout. Coba beberapa saat lagi.")
         raise HTTPException(
             status_code=502,
-            detail=f"Error dari Hugging Face: {error_str[:300]}"
+            detail=f"Hugging Face API error: {error_str[:300]}"
         )
 
     return {
@@ -316,4 +224,100 @@ async def generate_image(
         "prompt": request.prompt,
         "model": request.model,
     }
-
+
+
+# ==================== HISTORY: IMAGE GENERATIONS ====================
+
+@app.get("/history/images", response_model=list[ImageGenerationHistoryResponse])
+def get_image_history(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Ambil riwayat generate gambar milik user. **Membutuhkan autentikasi.**"""
+    return crud.get_image_generations(db=db, user_id=current_user.id, skip=skip, limit=limit)
+
+
+@app.get("/history/images/{generation_id}", response_model=ImageGenerationHistoryResponse)
+def get_image_history_by_id(
+    generation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Ambil detail satu riwayat generate gambar. **Membutuhkan autentikasi.**"""
+    record = crud.get_image_generation_by_id(db=db, user_id=current_user.id, generation_id=generation_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Riwayat tidak ditemukan.")
+    return record
+
+
+@app.delete("/history/images/{generation_id}", status_code=204)
+def delete_image_history(
+    generation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Hapus satu riwayat generate gambar. **Membutuhkan autentikasi.**"""
+    success = crud.delete_image_generation(db=db, user_id=current_user.id, generation_id=generation_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Riwayat tidak ditemukan.")
+    return None
+
+
+# ==================== HISTORY: TEXT SUMMARIZATIONS ====================
+
+@app.get("/history/summaries", response_model=list[SummarizationHistoryResponse])
+def get_summary_history(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Ambil riwayat summarisasi teks milik user. **Membutuhkan autentikasi.**"""
+    return crud.get_summarizations(db=db, user_id=current_user.id, skip=skip, limit=limit)
+
+
+# ==================== HISTORY: IMAGE CAPTIONS ====================
+
+@app.get("/history/captions", response_model=list[ImageCaptionHistoryResponse])
+def get_caption_history(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Ambil riwayat caption gambar milik user. **Membutuhkan autentikasi.**"""
+    return crud.get_image_captions(db=db, user_id=current_user.id, skip=skip, limit=limit)
+
+
+# ==================== STATS ====================
+
+@app.get("/stats")
+def get_user_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Statistik penggunaan AI milik user yang sedang login. **Membutuhkan autentikasi.**"""
+    from models import ImageGeneration, TextSummarization, ImageCaption
+    from sqlalchemy import func
+
+    total_images = db.query(func.count(ImageGeneration.id)).filter(ImageGeneration.user_id == current_user.id).scalar() or 0
+    total_summaries = db.query(func.count(TextSummarization.id)).filter(TextSummarization.user_id == current_user.id).scalar() or 0
+    total_captions = db.query(func.count(ImageCaption.id)).filter(ImageCaption.user_id == current_user.id).scalar() or 0
+
+    return {
+        "user": {
+            "id": current_user.id,
+            "username": current_user.username,
+            "email": current_user.email,
+            "api_quota": current_user.api_quota,
+            "api_used": current_user.api_used,
+        },
+        "usage": {
+            "total_image_generations": total_images,
+            "total_text_summarizations": total_summaries,
+            "total_image_captions": total_captions,
+            "total_api_calls": total_images + total_summaries + total_captions,
+        }
+    }

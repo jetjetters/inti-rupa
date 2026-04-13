@@ -3,63 +3,25 @@ from typing import Optional
 from datetime import datetime
 
 
-# === BASE SCHEMA ===
-class ItemBase(BaseModel):
-    """Base schema — field yang dipakai untuk create & update."""
-    name: str = Field(..., min_length=1, max_length=100, examples=["Laptop"])
-    description: Optional[str] = Field(None, examples=["Laptop untuk cloud computing"])
-    price: float = Field(..., gt=0, examples=[15000000])
-    quantity: int = Field(0, ge=0, examples=[10])
-
-
-# === CREATE SCHEMA (untuk POST request) ===
-class ItemCreate(ItemBase):
-    """Schema untuk membuat item baru. Mewarisi semua field dari ItemBase."""
-    pass
-
-
-# === UPDATE SCHEMA (untuk PUT request) ===
-class ItemUpdate(BaseModel):
-    """
-    Schema untuk update item. Semua field optional
-    karena user mungkin hanya ingin update sebagian field.
-    """
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    description: Optional[str] = None
-    price: Optional[float] = Field(None, gt=0)
-    quantity: Optional[int] = Field(None, ge=0)
-
-
-# === RESPONSE SCHEMA (untuk output) ===
-class ItemResponse(ItemBase):
-    """Schema untuk response. Termasuk id dan timestamp dari database."""
-    id: int
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True  # Agar bisa convert dari SQLAlchemy model
-
-
-# === LIST RESPONSE (dengan metadata) ===
-class ItemListResponse(BaseModel):
-    """Schema untuk response list items dengan total count."""
-    total: int
-    items: list[ItemResponse]
-
-
 # ============================================================
 # AUTH SCHEMAS
 # ============================================================
 
 class UserCreate(BaseModel):
     """Schema untuk registrasi user baru."""
+    username: str = Field(
+        ...,
+        min_length=3,
+        max_length=50,
+        examples=["aidil_saputra"],
+        description="Username unik (3-50 karakter, tanpa spasi)"
+    )
     email: EmailStr = Field(
         ...,
         examples=["user@student.itk.ac.id"],
-        description="Alamat email yang valid (contoh: nama@domain.com)"
+        description="Alamat email yang valid"
     )
-    name: str = Field(
+    full_name: str = Field(
         ...,
         min_length=2,
         max_length=100,
@@ -76,7 +38,7 @@ class UserCreate(BaseModel):
     @field_validator("password")
     @classmethod
     def password_strength(cls, v: str) -> str:
-        """Validasi kekuatan password menggunakan regex check."""
+        """Validasi kekuatan password."""
         errors = []
         if not any(c.isupper() for c in v):
             errors.append("minimal 1 huruf kapital (A-Z)")
@@ -93,6 +55,14 @@ class UserCreate(BaseModel):
             )
         return v
 
+    @field_validator("username")
+    @classmethod
+    def username_no_space(cls, v: str) -> str:
+        """Pastikan username tidak mengandung spasi."""
+        if " " in v:
+            raise ValueError("Username tidak boleh mengandung spasi.")
+        return v.lower()
+
 
 class LoginRequest(BaseModel):
     """Schema untuk login request."""
@@ -103,8 +73,11 @@ class LoginRequest(BaseModel):
 class UserResponse(BaseModel):
     """Schema untuk response user (tanpa password)."""
     id: int
+    username: str
     email: str
-    name: str
+    full_name: str
+    api_quota: int
+    api_used: int
     is_active: bool
     created_at: datetime
 
@@ -161,3 +134,91 @@ class ImageGenerateResponse(BaseModel):
     image_base64: str
     prompt: str
     model: str
+
+
+# ============================================================
+# IMAGE GENERATION HISTORY SCHEMAS
+# ============================================================
+
+class ImageGenerationHistoryResponse(BaseModel):
+    """Schema untuk response riwayat generate gambar dari database."""
+    id: int
+    prompt: str
+    negative_prompt: Optional[str]
+    image_url: str
+    model_name: str
+    status: str
+    error_message: Optional[str]
+    generation_time: Optional[float]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================================
+# TEXT SUMMARIZATION SCHEMAS
+# ============================================================
+
+class SummarizeRequest(BaseModel):
+    """Schema untuk request summarisasi teks."""
+    source_type: str = Field(
+        ...,
+        examples=["text"],
+        description="Jenis sumber: 'url', 'text', atau 'file'"
+    )
+    source_content: str = Field(
+        ..., min_length=10,
+        description="Teks atau URL yang akan diringkas"
+    )
+    model_name: str = Field(
+        default="bart-summarizer",
+        description="Model AI yang digunakan untuk summarisasi"
+    )
+
+    @field_validator("source_type")
+    @classmethod
+    def validate_source_type(cls, v: str) -> str:
+        allowed = {"url", "text", "file"}
+        if v not in allowed:
+            raise ValueError(f"source_type harus salah satu dari: {', '.join(allowed)}")
+        return v
+
+
+class SummarizationHistoryResponse(BaseModel):
+    """Schema untuk response riwayat summarisasi dari database."""
+    id: int
+    source_type: str
+    source_content: str
+    summary_text: str
+    model_name: str
+    original_length: Optional[int]
+    summary_length: Optional[int]
+    compression_ratio: Optional[float]
+    status: str
+    error_message: Optional[str]
+    processing_time: Optional[float]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================================
+# IMAGE CAPTION SCHEMAS
+# ============================================================
+
+class ImageCaptionHistoryResponse(BaseModel):
+    """Schema untuk response riwayat caption dari database."""
+    id: int
+    image_url: str
+    caption_text: str
+    model_name: str
+    confidence_score: Optional[float]
+    status: str
+    error_message: Optional[str]
+    processing_time: Optional[float]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
