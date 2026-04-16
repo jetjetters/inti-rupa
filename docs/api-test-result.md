@@ -1,6 +1,6 @@
 ## Hasil Test API
 ### auth/login 
-![alt text](images/auth-login.png)
+![alt text](images/authlogin.png)
 Gambar menunjukkan hasil dari proses login pengguna berupa:
 - access_token: Token JWT yang digunakan untuk akses API secara aman.
 - token_type: Jenis token yang digunakan adalah "bearer".
