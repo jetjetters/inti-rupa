@@ -1,8 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
 import Header from "./components/Header"
-import SearchBar from "./components/SearchBar"
-import ItemForm from "./components/ItemForm"
-import ItemList from "./components/ItemList"
 import LoginPage from "./components/LoginPage"
 import Toast from "./components/Toast"
 import ImageGeneratorPage from "./components/ImageGeneratorPage"
@@ -22,7 +19,7 @@ function App() {
   const { toast, showToast, hideToast } = useToast()
 
   // ==================== APP STATE ====================
-  const [activeTab, setActiveTab] = useState("inventory") // "inventory" | "ai-generator"
+  const [activeTab, setActiveTab] = useState("ai-generator") // "ai-generator" | "ai-summarize"
   const [items, setItems] = useState([])
   const [totalItems, setTotalItems] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -82,6 +79,7 @@ function App() {
       const userData = await getMe()
       setUser(userData)
       setIsAuthenticated(true)
+      setActiveTab("ai-generator") 
       showToast("Login berhasil! Selamat datang kembali!", "success")
     } catch (err) {
       showToast("Login gagal: " + err.message, "error")
@@ -180,13 +178,6 @@ function App() {
         {/* Tab Navigation */}
         <div style={styles.tabNav}>
           <button
-            id="tab-inventory"
-            style={{ ...styles.tabBtn, ...(activeTab === "inventory" ? styles.tabBtnActive : {}) }}
-            onClick={() => setActiveTab("inventory")}
-          >
-            📦 Inventaris
-          </button>
-          <button
             id="tab-ai-generator"
             style={{ ...styles.tabBtn, ...(activeTab === "ai-generator" ? styles.tabBtnActive : {}) }}
             onClick={() => setActiveTab("ai-generator")}
@@ -205,25 +196,6 @@ function App() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === "inventory" && (
-          <>
-            <ItemForm
-              onSubmit={handleSubmit}
-              editingItem={editingItem}
-              onCancelEdit={() => setEditingItem(null)}
-              showToast={showToast}
-            />
-            <SearchBar onSearch={handleSearch} />
-            <ItemList
-              items={items}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              loading={loading}
-              deletingItems={deletingItems}
-            />
-          </>
-        )}
-
         {activeTab === "ai-generator" && (
           <ImageGeneratorPage showToast={showToast} />
         )}

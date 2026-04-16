@@ -1,16 +1,26 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Spinner from "./Spinner"
+
+const initialFormData = {
+  username: "",
+  email: "",
+  password: "",
+  full_name: "",
+}
 
 function LoginPage({ onLogin, onRegister, showToast }) {
   const [isRegister, setIsRegister] = useState(false)
-  const [formData, setFormData] = useState({
-    username: "",
-    email: "",
-    password: "",
-    full_name: "",
-  })
+  const [formData, setFormData] = useState(initialFormData)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    resetForm()
+  }, [])
+
+  const resetForm = () => {
+    setFormData(initialFormData)
+  }
 
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
@@ -42,6 +52,7 @@ function LoginPage({ onLogin, onRegister, showToast }) {
       } else {
         await onLogin(formData.email, formData.password)
       }
+      resetForm()
     } catch (err) {
       showToast(err.message, "error")
     } finally {
@@ -55,23 +66,45 @@ function LoginPage({ onLogin, onRegister, showToast }) {
         <h1 style={styles.title}>☁️ Cloud App</h1>
         <p style={styles.subtitle}>Komputasi Awan — SI ITK</p>
 
-        {/* Tab Switch */}
         <div style={styles.tabs}>
           <button
+            type="button"
             style={{ ...styles.tab, ...(isRegister ? {} : styles.tabActive) }}
-            onClick={() => { setIsRegister(false); setError("") }}
+            onClick={() => {
+              setIsRegister(false)
+              setError("")
+              resetForm()
+            }}
           >
             Login
           </button>
           <button
+            type="button"
             style={{ ...styles.tab, ...(isRegister ? styles.tabActive : {}) }}
-            onClick={() => { setIsRegister(true); setError("") }}
+            onClick={() => {
+              setIsRegister(true)
+              setError("")
+              resetForm()
+            }}
           >
             Register
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={styles.form}>
+        <form onSubmit={handleSubmit} style={styles.form} autoComplete="off">
+          <input
+            type="text"
+            name="fakeusername"
+            style={{ display: "none" }}
+            autoComplete="username"
+          />
+          <input
+            type="password"
+            name="fakepassword"
+            style={{ display: "none" }}
+            autoComplete="new-password"
+          />
+
           {isRegister && (
             <div style={styles.field}>
               <label style={styles.label}>Nama Lengkap</label>
@@ -82,6 +115,7 @@ function LoginPage({ onLogin, onRegister, showToast }) {
                 onChange={handleChange}
                 placeholder="Nama Lengkap"
                 style={styles.input}
+                autoComplete="name"
               />
             </div>
           )}
@@ -96,6 +130,7 @@ function LoginPage({ onLogin, onRegister, showToast }) {
                 onChange={handleChange}
                 placeholder="username_tanpa_spasi"
                 style={styles.input}
+                autoComplete="username"
               />
             </div>
           )}
@@ -110,6 +145,7 @@ function LoginPage({ onLogin, onRegister, showToast }) {
               placeholder="email@student.itk.ac.id"
               required
               style={styles.input}
+              autoComplete={isRegister ? "email" : "username"}
             />
           </div>
 
@@ -123,6 +159,7 @@ function LoginPage({ onLogin, onRegister, showToast }) {
               placeholder="Minimal 8 karakter"
               required
               style={styles.input}
+              autoComplete={isRegister ? "new-password" : "current-password"}
             />
           </div>
 
@@ -130,7 +167,7 @@ function LoginPage({ onLogin, onRegister, showToast }) {
             {loading ? (
               <>
                 <Spinner size={20} color="white" />
-                <span style={{ marginLeft: '0.5rem' }}>
+                <span style={{ marginLeft: "0.5rem" }}>
                   {isRegister ? "Mendaftarkan..." : "Masuk..."}
                 </span>
               </>
@@ -227,15 +264,6 @@ const styles = {
     fontSize: "1rem",
     fontWeight: "bold",
     marginTop: "0.5rem",
-  },
-  error: {
-    backgroundColor: "#FBE5D6",
-    color: "#C00000",
-    padding: "0.6rem 1rem",
-    borderRadius: "6px",
-    marginBottom: "0.5rem",
-    fontSize: "0.9rem",
-    textAlign: "center",
   },
 }
 
