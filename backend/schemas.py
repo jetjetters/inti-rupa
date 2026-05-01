@@ -92,8 +92,9 @@ class TokenResponse(BaseModel):
     user: UserResponse
 
 
+
 # ============================================================
-# IMAGE GENERATION SCHEMAS
+# CHAT SESSION SCHEMAS
 # ============================================================
 
 AVAILABLE_MODELS = [
@@ -101,132 +102,6 @@ AVAILABLE_MODELS = [
     "stabilityai/stable-diffusion-xl-base-1.0",
 ]
 
-class ImageGenerateRequest(BaseModel):
-    """Schema untuk request generate gambar dari teks prompt."""
-    prompt: str = Field(
-        ..., min_length=3, max_length=500,
-        examples=["a futuristic city at sunset, digital art"],
-        description="Deskripsi gambar yang ingin di-generate"
-    )
-    model: str = Field(
-        default="black-forest-labs/FLUX.1-schnell",
-        description="Model Hugging Face yang digunakan"
-    )
-    negative_prompt: Optional[str] = Field(
-        default=None, max_length=300,
-        description="Hal yang TIDAK diinginkan dalam gambar"
-    )
-    guidance_scale: float = Field(
-        default=7.5, ge=1.0, le=20.0,
-        description="CFG Scale: seberapa ketat AI mengikuti prompt (1-20)"
-    )
-    num_inference_steps: int = Field(
-        default=30, ge=10, le=100,
-        description="Jumlah langkah denoising (10-100, lebih banyak = lebih detail)"
-    )
-    width: int = Field(default=1024, description="Lebar gambar (px)")
-    height: int = Field(default=1024, description="Tinggi gambar (px)")
-    seed: Optional[int] = Field(default=None, description="Seed untuk hasil yang reproducible")
-
-
-class ImageGenerateResponse(BaseModel):
-    """Schema untuk response hasil generate gambar."""
-    image_base64: str
-    prompt: str
-    model: str
-
-
-# ============================================================
-# IMAGE GENERATION HISTORY SCHEMAS
-# ============================================================
-
-class ImageGenerationHistoryResponse(BaseModel):
-    """Schema untuk response riwayat generate gambar dari database."""
-    id: int
-    prompt: str
-    negative_prompt: Optional[str]
-    image_url: str
-    model_name: str
-    status: str
-    error_message: Optional[str]
-    generation_time: Optional[float]
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-# ============================================================
-# TEXT SUMMARIZATION SCHEMAS
-# ============================================================
-
-class SummarizeRequest(BaseModel):
-    """Schema untuk request summarisasi teks."""
-    source_type: str = Field(
-        ...,
-        examples=["text"],
-        description="Jenis sumber: 'url', 'text', atau 'file'"
-    )
-    source_content: str = Field(
-        ..., min_length=10,
-        description="Teks atau URL yang akan diringkas"
-    )
-    model_name: str = Field(
-        default="bart-summarizer",
-        description="Model AI yang digunakan untuk summarisasi"
-    )
-
-    @field_validator("source_type")
-    @classmethod
-    def validate_source_type(cls, v: str) -> str:
-        allowed = {"url", "text", "file"}
-        if v not in allowed:
-            raise ValueError(f"source_type harus salah satu dari: {', '.join(allowed)}")
-        return v
-
-
-class SummarizationHistoryResponse(BaseModel):
-    """Schema untuk response riwayat summarisasi dari database."""
-    id: int
-    source_type: str
-    source_content: str
-    summary_text: str
-    model_name: str
-    original_length: Optional[int]
-    summary_length: Optional[int]
-    compression_ratio: Optional[float]
-    status: str
-    error_message: Optional[str]
-    processing_time: Optional[float]
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-# ============================================================
-# IMAGE CAPTION SCHEMAS
-# ============================================================
-
-class ImageCaptionHistoryResponse(BaseModel):
-    """Schema untuk response riwayat caption dari database."""
-    id: int
-    image_url: str
-    caption_text: str
-    model_name: str
-    confidence_score: Optional[float]
-    status: str
-    error_message: Optional[str]
-    processing_time: Optional[float]
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-# ============================================================
-# CHAT SESSION SCHEMAS
-# ============================================================
 
 class ChatSessionCreate(BaseModel):
     """Schema untuk membuat sesi percakapan baru (dan langsung memanggil AI)."""
@@ -353,19 +228,3 @@ class ChatSessionListItem(BaseModel):
         from_attributes = True
 
 
-# ============================================================
-# UNIFIED HISTORY SCHEMA
-# ============================================================
-
-class UnifiedHistoryItem(BaseModel):
-    """Schema untuk satu item di tampilan riwayat gabungan.
-    Setiap item memiliki 'type' yang menunjukkan asal data."""
-    id: int
-    type: str   # 'image_generation' | 'text_summarization' | 'image_caption' | 'chat_session'
-    title: str  # deskripsi singkat (prompt / source_content potongan / session title)
-    status: Optional[str]       # 'completed' | 'failed' | None (untuk chat_session)
-    session_type: Optional[str] # hanya untuk type='chat_session'
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
