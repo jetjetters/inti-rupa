@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback } from "react"
 import Header from "./components/Header"
 import LoginPage from "./components/LoginPage"
 import Toast from "./components/Toast"
-import ImageGeneratorPage from "./components/ImageGeneratorPage"
-import AiSummarizePage from "./components/AiSummarizePage"
+
 import ChatHistoryPage from "./components/ChatHistoryPage"
 import { useToast } from "./hooks/useToast"
 import {
