@@ -88,3 +88,50 @@ def test_create_chat_unauthorized(client):
         "first_message": "Bypass!"
     })
     assert response.status_code == 403
+
+def test_chat_invalid_session_type(client, auth_headers):
+    """Test (Edge Case): Input session_type tidak valid -> 422."""
+    response = client.post("/chat/sessions", json={
+        "title": "Invalid Type",
+        "session_type": "video_call", # Invalid, seharusnya 'image' atau 'summarize'
+        "first_message": "Hello world"
+    }, headers=auth_headers)
+    assert response.status_code == 422
+
+def test_chat_empty_message(client, auth_headers):
+    """Test (Edge Case): Pesan terlalu pendek/kosong -> 422."""
+    response = client.post("/chat/sessions", json={
+        "title": "Short Message",
+        "session_type": "summarize",
+        "first_message": "hi" # Pydantic min_length=3
+    }, headers=auth_headers)
+    assert response.status_code == 422
+
+from unittest.mock import patch, AsyncMock
+@patch("google.generativeai.GenerativeModel.generate_content_async", new_callable=AsyncMock)
+def test_chat_pagination(mock_gemini, client, auth_headers):
+    """Test (Pagination): Endpoint list chat dengan ?skip=0&limit=2."""
+    # Setup Mock AI
+    class MockResponse:
+        text = "Mock summary"
+    mock_gemini.return_value = MockResponse()
+    
+    # Buat 3 sesi chat
+    for i in range(3):
+        client.post("/chat/sessions", json={
+            "title": f"Chat {i}",
+            "session_type": "summarize",
+            "first_message": f"Message {i}"
+        }, headers=auth_headers)
+    
+    # Ambil dengan limit=2
+    response = client.get("/chat/sessions?skip=0&limit=2", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) == 2 # Pastikan hanya 2 item yang kembali
+
+def test_get_chat_not_found(client, auth_headers):
+    """Test (Data Not Found): Akses chat ID yang tidak ada -> 404."""
+    response = client.get("/chat/sessions/999999", headers=auth_headers)
+    assert response.status_code == 404
