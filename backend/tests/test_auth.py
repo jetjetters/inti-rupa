@@ -93,3 +93,18 @@ def test_get_stats_success(client, auth_headers):
     assert "user" in data
     assert "usage" in data
     assert "total_api_calls" in data["usage"]
+
+def test_register_weak_password(client):
+    """Test (Edge Case): Register dengan password lemah -> 422."""
+    response = client.post("/auth/register", json={
+        "username": "weakpass",
+        "email": "weak@example.com",
+        "password": "123", # Terlalu pendek dan tidak memenuhi syarat
+        "full_name": "Weak User"
+    })
+    assert response.status_code == 422
+
+def test_get_stats_unauthorized(client):
+    """Test (Stats Endpoint): Akses stats tanpa login -> 403."""
+    response = client.get("/stats") # Tanpa headers auth
+    assert response.status_code == 403

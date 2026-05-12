@@ -19,3 +19,7 @@ dist/
 # Database
 *.db
 *.sqlite3
+
+# Testing
+.coverage
+htmlcov/
