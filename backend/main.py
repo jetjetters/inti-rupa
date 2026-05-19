@@ -182,14 +182,15 @@ async def create_chat_session(
         session_type=request.session_type,
     )
 
-    # Simpan pesan user
-    crud.add_chat_message(
-        db=db,
-        session_id=session.id,
-        role="user",
-        content=request.first_message,
-        content_type="text",
-    )
+    # Simpan pesan teks user (jika bukan OCR, simpan di awal. Jika OCR, simpan setelah gambar)
+    if request.session_type != "ocr":
+        crud.add_chat_message(
+            db=db,
+            session_id=session.id,
+            role="user",
+            content=request.first_message,
+            content_type="text",
+        )
 
     # Proses AI sesuai session_type
     if request.session_type == "image":
@@ -323,6 +324,26 @@ async def create_chat_session(
                 "data": image_bytes
             }
             
+            # Simpan gambar yang diupload ke database (agar tampil di chat UI user)
+            crud.add_chat_message(
+                db=db,
+                session_id=session.id,
+                role="user",
+                content=image_b64,
+                content_type="image_base64",
+                metadata={"mime_type": mime_type},
+            )
+            
+            # Simpan pesan teks instruksi setelah gambar (jika ada isinya)
+            if request.first_message and request.first_message.strip():
+                crud.add_chat_message(
+                    db=db,
+                    session_id=session.id,
+                    role="user",
+                    content=request.first_message,
+                    content_type="text",
+                )
+            
             prompt = request.first_message
             if prompt == "" or len(prompt) < 3:
                 prompt = "Tolong ekstrak semua teks yang ada di dalam gambar ini secara presisi dan rapi."
@@ -407,14 +428,15 @@ async def continue_chat_session(
     if not session:
         raise HTTPException(status_code=404, detail="Sesi tidak ditemukan.")
 
-    # Simpan pesan user
-    crud.add_chat_message(
-        db=db,
-        session_id=session.id,
-        role="user",
-        content=request.message,
-        content_type="text",
-    )
+    # Simpan pesan teks user (jika bukan OCR, simpan di awal. Jika OCR, simpan setelah gambar)
+    if session.session_type != "ocr":
+        crud.add_chat_message(
+            db=db,
+            session_id=session.id,
+            role="user",
+            content=request.message,
+            content_type="text",
+        )
 
     # Proses AI sesuai session_type
     if session.session_type == "image":
@@ -545,6 +567,26 @@ async def continue_chat_session(
                 "mime_type": mime_type,
                 "data": image_bytes
             }
+            
+            # Simpan gambar yang diupload ke database (agar tampil di chat UI user)
+            crud.add_chat_message(
+                db=db,
+                session_id=session.id,
+                role="user",
+                content=image_b64,
+                content_type="image_base64",
+                metadata={"mime_type": mime_type},
+            )
+            
+            # Simpan pesan teks instruksi setelah gambar (jika ada isinya)
+            if request.message and request.message.strip():
+                crud.add_chat_message(
+                    db=db,
+                    session_id=session.id,
+                    role="user",
+                    content=request.message,
+                    content_type="text",
+                )
             
             prompt = request.message
             if prompt == "" or len(prompt) < 3:
