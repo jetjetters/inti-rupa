@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import Spinner from "./Spinner"
@@ -28,13 +28,15 @@ function formatTime(iso) {
   return d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
 }
 
-export default function ChatHistoryPage({ showToast, activeTab, onSelectTab }) {
+export default function ChatHistoryPage({ showToast }) {
   const [sessions, setSessions] = useState([])
   const [activeSession, setActiveSession] = useState(null)
   const [loadingSessions, setLoadingSessions] = useState(true)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [sending, setSending] = useState(false)
   const hasRestoredSession = useRef(false)
+  const abortControllerRef = useRef(null)
+  const [optimisticMsg, setOptimisticMsg] = useState(null)
 
   // New session modal
   const [showNewModal, setShowNewModal] = useState(false)
@@ -43,7 +45,6 @@ export default function ChatHistoryPage({ showToast, activeTab, onSelectTab }) {
   const [newMessage, setNewMessage] = useState("")
   const [newModel, setNewModel] = useState(MODELS[0].id)
   const [newImageBase64, setNewImageBase64] = useState(null)
-  const [newImageFile, setNewImageFile] = useState(null)
   const [creatingSession, setCreatingSession] = useState(false)
 
   // Continue input
@@ -68,7 +69,7 @@ export default function ChatHistoryPage({ showToast, activeTab, onSelectTab }) {
   const messagesEndRef = useRef(null)
 
   // Helper untuk membaca file ke base64
-  const handleFileSelect = (e, setBase64, setFileObj) => {
+  const handleFileSelect = (e, setBase64) => {
     const file = e.target.files[0]
     if (!file) return
 
@@ -93,14 +94,13 @@ export default function ChatHistoryPage({ showToast, activeTab, onSelectTab }) {
       return
     }
 
-    setFileObj(file)
     const reader = new FileReader()
     reader.onload = (ev) => setBase64(ev.target.result)
     reader.readAsDataURL(file)
   }
 
   // ── Load session list ──
-  const loadSessions = async () => {
+  const loadSessions = useCallback(async () => {
     setLoadingSessions(true)
     try {
       const data = await getChatSessions()
@@ -110,9 +110,9 @@ export default function ChatHistoryPage({ showToast, activeTab, onSelectTab }) {
     } finally {
       setLoadingSessions(false)
     }
-  }
+  }, [showToast])
 
-  useEffect(() => { loadSessions() }, [])
+  useEffect(() => { loadSessions() }, [loadSessions])
 
   // ── Disable body scroll when modal is open ──
   useEffect(() => {
@@ -135,6 +135,27 @@ export default function ChatHistoryPage({ showToast, activeTab, onSelectTab }) {
     }
   }, [activeSession])
 
+
+
+  // ── Auto-scroll to bottom on new messages ──
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [activeSession?.messages])
+
+  // ── Open a session ──
+  const openSession = useCallback(async (id) => {
+    setLoadingDetail(true)
+    try {
+      const data = await getChatSessionById(id)
+      setActiveSession(data)
+      setContinueMsg("")
+    } catch {
+      showToast("Gagal memuat sesi.", "error")
+    } finally {
+      setLoadingDetail(false)
+    }
+  }, [showToast])
+
   // ── Restore active session after sessions list loaded (only once) ──
   useEffect(() => {
     if (hasRestoredSession.current || sessions.length === 0) return
@@ -146,26 +167,7 @@ export default function ChatHistoryPage({ showToast, activeTab, onSelectTab }) {
     } else {
       localStorage.removeItem("inti_active_session_id")
     }
-  }, [sessions])
-
-  // ── Auto-scroll to bottom on new messages ──
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [activeSession?.messages])
-
-  // ── Open a session ──
-  const openSession = async (id) => {
-    setLoadingDetail(true)
-    try {
-      const data = await getChatSessionById(id)
-      setActiveSession(data)
-      setContinueMsg("")
-    } catch {
-      showToast("Gagal memuat sesi.", "error")
-    } finally {
-      setLoadingDetail(false)
-    }
-  }
+  }, [sessions, openSession])
 
   // ── Create new session ──
   const handleCreateSession = async () => {
@@ -190,7 +192,6 @@ export default function ChatHistoryPage({ showToast, activeTab, onSelectTab }) {
       setNewTitle("")
       setNewMessage("")
       setNewImageBase64(null)
-      setNewImageFile(null)
       await loadSessions()
       setActiveSession(created)
       showToast("Sesi baru berhasil dibuat! ✨", "success")
@@ -211,22 +212,55 @@ export default function ChatHistoryPage({ showToast, activeTab, onSelectTab }) {
       return
     }
     
+    const originalMsg = continueMsg.trim()
+    const currentBase64 = continueImageBase64
+    const isImage = activeSession?.session_type === "image"
+
+    setOptimisticMsg({
+      id: "optimistic-" + Date.now(),
+      role: "user",
+      content: isOcr && !originalMsg ? "Tolong ekstrak teks dokumen ini." : (isOcr ? originalMsg : originalMsg),
+      content_type: isOcr ? "image_base64" : "text",
+      created_at: new Date().toISOString()
+    })
+
+    abortControllerRef.current = new AbortController()
     setSending(true)
+    setContinueMsg("")
+    setContinueImageBase64(null)
+    setContinueImageFile(null)
+
     try {
       const payload = {
-        message: continueMsg.trim() || (isOcr ? "Tolong ekstrak teks dokumen ini." : ""),
-        ...(activeSession.session_type === "image" ? { model: continueModel } : activeSession.session_type === "ocr" ? { image_data: continueImageBase64 } : { source_type: "text" }),
+        message: originalMsg || (isOcr ? "Tolong ekstrak teks dokumen ini." : ""),
+        ...(activeSession.session_type === "image" ? { model: continueModel } : activeSession.session_type === "ocr" ? { image_data: currentBase64 } : { source_type: "text" }),
       }
-      const updated = await continueChatSession(activeSession.id, payload)
+      const updated = await continueChatSession(activeSession.id, payload, { signal: abortControllerRef.current.signal })
       setActiveSession(updated)
-      setContinueMsg("")
-      setContinueImageBase64(null)
-      setContinueImageFile(null)
+      setOptimisticMsg(null)
       showToast("Berhasil diproses!", "success")
     } catch (err) {
-      showToast("Gagal mengirim: " + err.message, "error")
+      if (err.name === 'AbortError') {
+        showToast("Proses dibatalkan.", "error")
+        setContinueMsg(originalMsg)
+        if (isOcr) setContinueImageBase64(currentBase64)
+      } else {
+        showToast("Gagal mengirim: " + err.message, "error")
+        setContinueMsg(originalMsg)
+        if (isOcr) setContinueImageBase64(currentBase64)
+      }
+      setOptimisticMsg(null)
     } finally {
       setSending(false)
+      abortControllerRef.current = null
+    }
+  }
+
+  const handleSendOrStop = () => {
+    if (sending) {
+      if (abortControllerRef.current) abortControllerRef.current.abort()
+    } else {
+      handleContinue()
     }
   }
 
@@ -277,6 +311,15 @@ export default function ChatHistoryPage({ showToast, activeTab, onSelectTab }) {
   // ─────────────────────────────────────────────────────────
   return (
     <div style={s.pageWrapper}>
+      <style>{`
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(15px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-up {
+          animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+      `}</style>
       {/* HERO */}
       <div style={s.hero}>
         <div style={s.heroTextBlock}>
@@ -430,15 +473,23 @@ export default function ChatHistoryPage({ showToast, activeTab, onSelectTab }) {
                     </div>
                   </div>
                 ))}
-                {sending && (
-                  <div style={s.msgRow}>
-                    <div style={s.msgAvatar}>🤖</div>
-                    <div style={s.msgBubble}>
-                      <div style={s.typingDots}>
-                        <Spinner size={16} color="#ffb26c" />
-                        <span style={{ marginLeft: "0.5rem", color: "#f0d8b5" }}>AI sedang memproses...</span>
-                      </div>
+                {optimisticMsg && (
+                  <div
+                    key={optimisticMsg.id}
+                    className="animate-slide-up"
+                    style={{ ...s.msgRow, ...s.msgRowUser }}
+                  >
+                    <div style={s.msgAvatarUser}>👤</div>
+                    <div style={{ ...s.msgBubble, ...s.msgBubbleUser }}>
+                      <p style={s.msgText}>{optimisticMsg.content}</p>
+                      <span style={s.msgTime}>{formatTime(optimisticMsg.created_at)}</span>
                     </div>
+                  </div>
+                )}
+                {sending && (
+                  <div className="animate-slide-up" style={{ alignSelf: "flex-end", display: "flex", alignItems: "center", gap: "0.5rem", opacity: 0.8, paddingRight: "3rem", marginTop: "-0.5rem" }}>
+                    <Spinner size={16} color="#ffb26c" />
+                    <span style={{ fontSize: "0.85rem", color: "#f0d8b5", fontStyle: "italic" }}>AI sedang memproses...</span>
                   </div>
                 )}
                 <div ref={messagesEndRef} />
@@ -540,11 +591,15 @@ export default function ChatHistoryPage({ showToast, activeTab, onSelectTab }) {
                   )}
 
                   <button
-                    style={{ ...s.btnSend, ...(sending || (!continueMsg.trim() && activeSession.session_type !== "ocr") || (activeSession.session_type === "ocr" && !continueImageBase64) ? s.btnDisabled : {}) }}
-                    onClick={handleContinue}
-                    disabled={sending || (!continueMsg.trim() && activeSession.session_type !== "ocr") || (activeSession.session_type === "ocr" && !continueImageBase64)}
+                    style={{ ...s.btnSend, ...(sending ? s.btnStop : (!continueMsg.trim() && activeSession.session_type !== "ocr") || (activeSession.session_type === "ocr" && !continueImageBase64) ? s.btnDisabled : {}) }}
+                    onClick={handleSendOrStop}
+                    disabled={!sending && ((!continueMsg.trim() && activeSession.session_type !== "ocr") || (activeSession.session_type === "ocr" && !continueImageBase64))}
                   >
-                    {sending ? <Spinner size={18} color="#111" /> : "Kirim ↑"}
+                    {sending ? (
+                      <>⏹ Batal</>
+                    ) : (
+                      <>Kirim ↑</>
+                    )}
                   </button>
                 </div>
                 <p style={s.inputHint}>Enter untuk kirim · Shift+Enter untuk baris baru</p>
@@ -563,7 +618,11 @@ export default function ChatHistoryPage({ showToast, activeTab, onSelectTab }) {
                 <p style={s.modalLabel}>Buat Sesi Baru di Inti Studio</p>
                 <h3 style={s.modalTitle}>Pilih jenis aktivitas & mulai</h3>
               </div>
-              <button style={s.btnClose} onClick={() => setShowNewModal(false)} disabled={creatingSession}>✕</button>
+              <button style={s.btnClose} onClick={() => setShowNewModal(false)} disabled={creatingSession}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M1 13L13 1M1 1L13 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
             </div>
 
             {/* Type selector */}
@@ -681,7 +740,7 @@ export default function ChatHistoryPage({ showToast, activeTab, onSelectTab }) {
                   type="file" 
                   accept="image/*,application/pdf" 
                   style={{...s.modalInput, padding: "0.5rem"}}
-                  onChange={e => handleFileSelect(e, setNewImageBase64, setNewImageFile)}
+                  onChange={e => handleFileSelect(e, setNewImageBase64)}
                   disabled={creatingSession}
                 />
               </div>
@@ -779,9 +838,10 @@ const s = {
   // Input area
   inputArea: { padding: "1.25rem 1.75rem", borderTop: "1px solid rgba(255,255,255,0.07)", display: "flex", flexDirection: "column", gap: "0.75rem" },
   modelSelect: { width: "fit-content", padding: "0.6rem 0.9rem", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.07)", color: "#f7ede2", outline: "none", fontSize: "0.85rem" },
-  inputRow: { display: "flex", gap: "0.75rem", alignItems: "flex-end" },
+  inputRow: { display: "flex", gap: "0.75rem", alignItems: "flex-start" },
   inputTextarea: { flex: 1, padding: "0.85rem 1rem", borderRadius: "18px", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.06)", color: "#f8f5ef", outline: "none", resize: "none", fontSize: "0.95rem", lineHeight: 1.6 },
-  btnSend: { minWidth: "90px", minHeight: "52px", borderRadius: "18px", border: "none", background: "linear-gradient(135deg, #ffb56e, #ff8f48)", color: "#111827", fontWeight: 800, cursor: "pointer", fontSize: "0.95rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem" },
+  btnSend: { minWidth: "90px", height: "52px", borderRadius: "18px", border: "none", background: "linear-gradient(135deg, #ffb56e, #ff8f48)", color: "#111827", fontWeight: 800, cursor: "pointer", fontSize: "0.95rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem", transition: "all 0.2s" },
+  btnStop: { background: "linear-gradient(135deg, #ef4444, #be123c)", color: "#ffffff", boxShadow: "0 4px 15px rgba(225, 29, 72, 0.3)" },
   btnDisabled: { opacity: 0.55, cursor: "not-allowed" },
   inputHint: { margin: 0, fontSize: "0.75rem", color: "#6b7394" },
 
@@ -818,7 +878,7 @@ const s = {
   modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start" },
   modalLabel: { margin: 0, color: "#f2c29b", fontSize: "0.78rem", letterSpacing: "0.16em", textTransform: "uppercase", fontWeight: 700 },
   modalTitle: { margin: "0.3rem 0 0", fontSize: "1.3rem", color: "#fff8f0", fontWeight: 800 },
-  btnClose: { background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "999px", width: "36px", height: "36px", cursor: "pointer", color: "#edf2ff", fontWeight: 700, display: "grid", placeItems: "center" },
+  btnClose: { background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "999px", width: "36px", height: "36px", cursor: "pointer", color: "#edf2ff", fontWeight: 700, display: "grid", placeItems: "center", padding: 0 },
   typeGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "0.75rem" },
   typeCard: { padding: "1rem", borderRadius: "18px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#f2ede8", textAlign: "left", cursor: "pointer", display: "flex", flexDirection: "column", gap: "0.35rem" },
   typeCardActive: { background: "linear-gradient(135deg, rgba(255,156,60,0.16), rgba(255,255,255,0.08))", borderColor: "rgba(255,156,60,0.32)", boxShadow: "0 8px 24px rgba(255,141,61,0.12)" },
