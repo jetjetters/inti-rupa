@@ -174,30 +174,40 @@ function AppContent() {
       <DegradedModeBanner />
       
       <div style={styles.container}>
-        <Header
-          user={user}
-          onLogout={handleLogout}
-          isDark={isDark}
-          onToggleDark={toggleDark}
-        />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+          <Header
+            user={user}
+            onLogout={handleLogout}
+            isDark={isDark}
+            onToggleDark={toggleDark}
+          />
+        </div>
 
         <div className="flex gap-3 flex-wrap mb-6">
           <button
             onClick={() => setActiveTab("about-us")}
-            className={`px-6 py-3 rounded-full font-bold transition-all duration-300 ${
+            className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 ${
               activeTab === "about-us"
-                ? "bg-gradient-to-r from-inti-orange to-inti-orange-light text-inti-dark shadow-[0_10px_25px_-5px_rgba(255,143,72,0.4)] scale-105"
-                : "bg-white/10 border border-white/10 text-inti-text-muted hover:bg-white/20 hover:text-white hover:border-white/30"
+                ? isDark 
+                  ? "bg-linear-to-r from-inti-orange to-inti-orange-light text-inti-dark shadow-[0_10px_25px_-5px_rgba(255,143,72,0.4)] scale-105"
+                  : "bg-linear-to-r from-inti-orange to-inti-orange-light text-white shadow-[0_10px_25px_-5px_rgba(255,143,72,0.5)] scale-105"
+                : isDark
+                  ? "bg-white/10 border border-white/10 text-inti-text-muted hover:bg-white/20 hover:text-white hover:border-white/30"
+                  : "bg-orange-100/30 border border-orange-200/50 text-orange-700 hover:bg-orange-100/50 hover:text-orange-900 hover:border-orange-300"
             }`}
           >
             ℹ️ About Us
           </button>
           <button
             onClick={() => setActiveTab("chat-history")}
-            className={`px-6 py-3 rounded-full font-bold transition-all duration-300 ${
+            className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 ${
               activeTab === "chat-history"
-                ? "bg-gradient-to-r from-inti-orange to-inti-orange-light text-inti-dark shadow-[0_10px_25px_-5px_rgba(255,143,72,0.4)] scale-105"
-                : "bg-white/10 border border-white/10 text-inti-text-muted hover:bg-white/20 hover:text-white hover:border-white/30"
+                ? isDark 
+                  ? "bg-linear-to-r from-inti-orange to-inti-orange-light text-inti-dark shadow-[0_10px_25px_-5px_rgba(255,143,72,0.4)] scale-105"
+                  : "bg-linear-to-r from-inti-orange to-inti-orange-light text-white shadow-[0_10px_25px_-5px_rgba(255,143,72,0.5)] scale-105"
+                : isDark
+                  ? "bg-white/10 border border-white/10 text-inti-text-muted hover:bg-white/20 hover:text-white hover:border-white/30"
+                  : "bg-orange-100/30 border border-orange-200/50 text-orange-700 hover:bg-orange-100/50 hover:text-orange-900 hover:border-orange-300"
             }`}
           >
             💬 Chat History
@@ -228,7 +238,7 @@ const styles = {
     background:
       "radial-gradient(circle at top left, rgba(136, 115, 255, 0.16), transparent 24%), radial-gradient(circle at bottom right, rgba(255, 184, 130, 0.18), transparent 24%), #060913",
     padding: "2rem",
-    fontFamily: "'SF Pro Display', 'SF Pro', system-ui, sans-serif",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'San Francisco', 'Segoe UI', 'Helvetica Neue', sans-serif",
     color: "#edf2ff",
   },
   container: {
