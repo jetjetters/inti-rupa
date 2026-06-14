@@ -78,7 +78,7 @@ graph TD
 
 ---
 
-## 👥 Tim Pengembang (Kelompok A)
+## 👥 Tim Pengembang (Kelompok Steam)
 
 | Peran | Nama | NIM | Tanggung Jawab Utama |
 | :--- | :--- | :--- | :--- |
