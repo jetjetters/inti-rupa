@@ -13,6 +13,7 @@
 
 /* ===== DARK / LIGHT MODE DESIGN TOKENS ===== */
 :root {
+  color-scheme: dark;
   /* Dark mode tokens (default) */
   --bg-app: #060913;
   --bg-app-gradient: radial-gradient(circle at top left, rgba(136, 115, 255, 0.16), transparent 24%),
@@ -41,6 +42,7 @@
 
 /* Light mode — activated by html.light class */
 html.light {
+  color-scheme: light;
   --bg-app: #f5ede4;
   --bg-app-gradient: radial-gradient(circle at top left, rgba(255, 159, 64, 0.18), transparent 24%),
                      radial-gradient(circle at bottom right, rgba(255, 193, 105, 0.16), transparent 24%),
@@ -94,7 +96,7 @@ button:hover {
 }
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: none;
 }
 
 /* ===== BROWSER AUTOFILL FIX ===== */
@@ -313,3 +315,6 @@ html.light .dark-mode-toggle:hover {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.7);
 }
+
+
+
