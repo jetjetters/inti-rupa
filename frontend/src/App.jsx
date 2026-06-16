@@ -221,6 +221,7 @@ function AppContent() {
         isOpen={showLogoutModal} 
         onConfirm={performLogout} 
         onCancel={() => setShowLogoutModal(false)} 
+        isDark={isDark}
       />
       {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     </div>

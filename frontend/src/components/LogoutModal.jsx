@@ -1,23 +1,39 @@
 import React from "react"
 
-function LogoutModal({ isOpen, onConfirm, onCancel }) {
+function LogoutModal({ isOpen, onConfirm, onCancel, isDark = true }) {
   if (!isOpen) return null
 
+  const s = getStyles(isDark)
+
   return (
-    <div style={styles.overlay}>
-      <div style={styles.modal}>
-        <div style={styles.iconContainer}>
-          <svg style={styles.exclamation} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
-            <circle style={styles.exclamationCircle} cx="26" cy="26" r="25" fill="none" />
-            <path style={styles.exclamationLine} fill="none" d="M26 12 v16" />
-            <circle style={styles.exclamationDot} cx="26" cy="36" r="2" fill="#ffb57f" />
+    <div style={s.overlay}>
+      <div style={s.modal}>
+        <div style={s.iconContainer}>
+          <svg style={s.exclamation} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+            <circle style={s.exclamationCircle} cx="26" cy="26" r="25" fill="none" />
+            <path style={s.exclamationLine} fill="none" d="M26 12 v16" />
+            <circle style={s.exclamationDot} cx="26" cy="36" r="2" fill="#ffb57f" />
           </svg>
         </div>
-        <h2 style={styles.title}>Konfirmasi Logout</h2>
-        <p style={styles.message}>Apakah Anda yakin ingin keluar dari sesi ini?</p>
-        <div style={styles.buttonContainer}>
-          <button onClick={onCancel} style={styles.btnCancel}>Batal</button>
-          <button onClick={onConfirm} style={styles.btnConfirm}>Ya, Keluar</button>
+        <h2 style={s.title}>Konfirmasi Logout</h2>
+        <p style={s.message}>Apakah Anda yakin ingin keluar dari sesi ini?</p>
+        <div style={s.buttonContainer}>
+          <button 
+            onClick={onCancel} 
+            style={s.btnCancel}
+            onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(255, 143, 72, 0.2)" }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(255, 143, 72, 0.1)" }}
+          >
+            Batal
+          </button>
+          <button 
+            onClick={onConfirm} 
+            style={s.btnConfirm}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = isDark ? "0 10px 25px rgba(255, 149, 92, 0.3)" : "0 10px 25px rgba(255, 143, 72, 0.5)" }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = isDark ? "0 10px 20px rgba(255, 149, 92, 0.2)" : "0 10px 20px rgba(255, 143, 72, 0.4)" }}
+          >
+            Ya, Keluar
+          </button>
         </div>
       </div>
       <style>{`
@@ -47,14 +63,14 @@ function LogoutModal({ isOpen, onConfirm, onCancel }) {
   )
 }
 
-const styles = {
+const getStyles = (isDark) => ({
   overlay: {
     position: "fixed",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(8, 9, 20, 0.8)",
+    backgroundColor: isDark ? "rgba(8, 9, 20, 0.8)" : "rgba(255, 255, 255, 0.6)",
     backdropFilter: "blur(8px)",
     display: "flex",
     alignItems: "center",
@@ -63,14 +79,20 @@ const styles = {
     animation: "fadeIn 0.3s ease-out forwards",
   },
   modal: {
-    background: "linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(25, 39, 76, 0.95))",
-    border: "1px solid rgba(255, 164, 82, 0.2)",
+    background: isDark 
+      ? "linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(25, 39, 76, 0.95))"
+      : "linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(252, 248, 243, 0.98))",
+    border: isDark 
+      ? "1px solid rgba(255, 164, 82, 0.2)"
+      : "1px solid rgba(255, 143, 72, 0.3)",
     borderRadius: "24px",
     padding: "2.5rem 2rem",
     width: "90%",
     maxWidth: "400px",
     textAlign: "center",
-    boxShadow: "0 24px 80px rgba(0, 0, 0, 0.4)",
+    boxShadow: isDark 
+      ? "0 24px 80px rgba(0, 0, 0, 0.4)"
+      : "0 24px 80px rgba(255, 143, 72, 0.15)",
     animation: "scaleUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards",
   },
   iconContainer: {
@@ -93,7 +115,7 @@ const styles = {
     strokeDashoffset: 166,
     strokeWidth: 4,
     strokeMiterlimit: 10,
-    stroke: "rgba(255, 181, 127, 0.3)",
+    stroke: isDark ? "rgba(255, 181, 127, 0.3)" : "rgba(255, 143, 72, 0.3)",
     fill: "none",
     animation: "drawCircle 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards",
   },
@@ -113,12 +135,12 @@ const styles = {
   title: {
     margin: "0 0 0.5rem",
     fontSize: "1.5rem",
-    color: "#fff",
+    color: isDark ? "#fff" : "#3d2817",
     fontWeight: "bold",
   },
   message: {
     margin: "0 0 1.5rem",
-    color: "#a1a6b3",
+    color: isDark ? "#a1a6b3" : "#8b7355",
     fontSize: "1rem",
     lineHeight: 1.5,
   },
@@ -130,9 +152,13 @@ const styles = {
   btnCancel: {
     padding: "0.75rem 1.5rem",
     borderRadius: "12px",
-    border: "1px solid rgba(255, 255, 255, 0.2)",
-    background: "rgba(255, 255, 255, 0.05)",
-    color: "#fff",
+    border: isDark 
+      ? "1px solid rgba(255, 255, 255, 0.2)"
+      : "1px solid rgba(255, 143, 72, 0.3)",
+    background: isDark 
+      ? "rgba(255, 255, 255, 0.05)"
+      : "rgba(255, 143, 72, 0.1)",
+    color: isDark ? "#fff" : "#d94511",
     cursor: "pointer",
     fontWeight: 600,
     transition: "all 0.2s ease",
@@ -141,13 +167,17 @@ const styles = {
     padding: "0.75rem 1.5rem",
     borderRadius: "12px",
     border: "none",
-    background: "linear-gradient(135deg, #ffb57f, #ff8f8f)",
-    color: "#111827",
+    background: isDark 
+      ? "linear-gradient(135deg, #ffb57f, #ff8f8f)"
+      : "linear-gradient(135deg, #ff8f48, #ffb57f)",
+    color: isDark ? "#111827" : "#fff",
     cursor: "pointer",
     fontWeight: 700,
-    boxShadow: "0 10px 20px rgba(255, 149, 92, 0.2)",
+    boxShadow: isDark 
+      ? "0 10px 20px rgba(255, 149, 92, 0.2)"
+      : "0 10px 20px rgba(255, 143, 72, 0.4)",
     transition: "transform 0.2s ease, box-shadow 0.2s ease",
   },
-}
+})
 
 export default LogoutModal
