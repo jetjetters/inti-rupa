@@ -5,17 +5,17 @@
 # Reviewer otomatis ditambahkan saat PR mengubah file terkait
 
 # Backend — Lead Backend
-/backend/                @IrfanZakiRiyanto
+/backend/                @jetjetters
 
 # Frontend — Lead Frontend
-/frontend/               @Incharaghil
+/frontend/               @jetjetters
 
 # Docker & Infrastructure — Lead DevOps
-docker-compose.yml       @JonathanCristopherJetro
-/backend/Dockerfile      @JonathanCristopherJetro
-/frontend/Dockerfile     @JonathanCristopherJetro
-Makefile                 @JonathanCristopherJetro
+docker-compose.yml       @jetjetters
+/backend/Dockerfile      @jetjetters
+/frontend/Dockerfile     @jetjetters
+Makefile                 @jetjetters
 
 # Documentation — Lead QA & Docs
-README.md                @Jonathan-Joseph-yudita
-/docs/                   @Jonathan-Joseph-yudita
+README.md                @jetjetters
+/docs/                   @jetjetters
