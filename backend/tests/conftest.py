@@ -13,6 +13,8 @@ from sqlalchemy.pool import StaticPool
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 os.environ["TESTING"] = "true"
+os.environ["GEMINI_API_KEY"] = "dummy"
+os.environ["HUGGINGFACE_API_KEY"] = "dummy"
 
 from database import Base, get_db
 from main import app
